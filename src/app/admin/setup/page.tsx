@@ -26,7 +26,7 @@ export default function AdminSetupPage() {
   const [newGameName, setNewGameName] = useState("Carbon Commandos");
 
   const [teamName, setTeamName] = useState("");
-  const [teamColor, setTeamColor] = useState("#5b9ee0");
+  const [teamColor, setTeamColor] = useState("#e8202f");
   const [teamMax, setTeamMax] = useState(8);
 
   const [roleName, setRoleName] = useState("");

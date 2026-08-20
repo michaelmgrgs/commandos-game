@@ -185,7 +185,7 @@ export default function AdminDashboardPage() {
   const taskLockedCount = players.filter((p) => p.adminLock === "TASK_LOCKED").length;
 
   return (
-    <div className="cc-container" style={{ maxWidth: 1100 }}>
+    <div className="cc-container">
       {announcementFresh && announcement && (
         <div className="cc-general-down-overlay" onClick={() => setDismissedAnnouncementTs(announcement.ts)}>
           <div className="cc-siren">🚨</div>
