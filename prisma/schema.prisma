@@ -1,0 +1,176 @@
+// Carbon Commandos — database schema (MVP: Phases 1-4 of the build plan).
+// This covers: game setup, teams, roles + elimination matrix, self-registration,
+// role assignment, and the combat scan flow. Shop/missions/checkpoints/map/events
+// are the next increment on top of this same schema (see README).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum GamePhase {
+  SETUP // admin is still building teams/roles/matrix
+  REGISTRATION // players can self-register and admin assigns roles
+  ACTIVE // combat is live
+  PAUSED // admin has paused the whole game
+  ENDED
+}
+
+enum PlayerStatus {
+  ACTIVE
+  ELIMINATED
+}
+
+enum AdminLock {
+  NONE
+  PAUSED
+  TASK_LOCKED
+}
+
+enum CombatStatus {
+  SUCCESS
+  DENIED
+}
+
+enum AdminRole {
+  GAME_MASTER
+  FACILITATOR
+}
+
+model Game {
+  id        String    @id @default(cuid())
+  name      String
+  phase     GamePhase @default(SETUP)
+  config    Json      @default("{}")
+  createdAt DateTime  @default(now())
+  startedAt DateTime?
+  endedAt   DateTime?
+
+  teams            Team[]
+  roles            Role[]
+  players          Player[]
+  eliminationRules EliminationRule[]
+  combatEvents     CombatEvent[]
+  auditLogs        AuditLog[]
+}
+
+model Team {
+  id         String   @id @default(cuid())
+  gameId     String
+  game       Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  name       String
+  color      String   @default("#2563eb")
+  credits    Int      @default(0)
+  score      Int      @default(0)
+  maxPlayers Int      @default(8)
+  createdAt  DateTime @default(now())
+
+  players Player[]
+
+  @@index([gameId])
+}
+
+model Role {
+  id            String   @id @default(cuid())
+  gameId       String
+  game         Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  name         String
+  rankOrder    Int      @default(0)
+  startingLives Int     @default(1)
+  isSecret     Boolean  @default(false)
+  // Max number of this role allowed per team. NULL = unlimited ("the rest are Soldiers").
+  slotsPerTeam Int?
+  createdAt    DateTime @default(now())
+
+  players               Player[]
+  rulesAsAttacker       EliminationRule[] @relation("AttackerRole")
+  rulesAsTarget         EliminationRule[] @relation("TargetRole")
+
+  @@index([gameId])
+}
+
+model EliminationRule {
+  id             String  @id @default(cuid())
+  gameId         String
+  game           Game    @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  attackerRoleId String
+  attackerRole   Role    @relation("AttackerRole", fields: [attackerRoleId], references: [id], onDelete: Cascade)
+  targetRoleId   String
+  targetRole     Role    @relation("TargetRole", fields: [targetRoleId], references: [id], onDelete: Cascade)
+  canEliminate   Boolean @default(false)
+
+  @@unique([attackerRoleId, targetRoleId])
+  @@index([gameId])
+}
+
+model Player {
+  id                String       @id @default(cuid())
+  gameId            String
+  game              Game         @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  teamId            String
+  team              Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  roleId            String?
+  role              Role?        @relation(fields: [roleId], references: [id])
+  name              String
+  callsign          String?
+  qrToken           String       @unique
+  pinHash           String?
+  livesCurrent      Int          @default(1)
+  livesMax          Int          @default(1)
+  status            PlayerStatus @default(ACTIVE)
+  credits           Int          @default(0)
+  adminLock         AdminLock    @default(NONE)
+  eliminationsCount Int          @default(0)
+  deathsCount       Int          @default(0)
+  createdAt         DateTime     @default(now())
+
+  attacksAsAttacker CombatEvent[] @relation("Attacker")
+  attacksAsTarget   CombatEvent[] @relation("Target")
+
+  @@index([gameId])
+  @@index([teamId])
+}
+
+model CombatEvent {
+  id         String       @id @default(cuid())
+  gameId     String
+  game       Game         @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  attackerId String
+  attacker   Player       @relation("Attacker", fields: [attackerId], references: [id], onDelete: Cascade)
+  targetId   String
+  target     Player       @relation("Target", fields: [targetId], references: [id], onDelete: Cascade)
+  status     CombatStatus
+  reason     String?
+  createdAt  DateTime     @default(now())
+
+  @@index([gameId])
+}
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         AdminRole @default(FACILITATOR)
+  createdAt    DateTime  @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  gameId     String
+  game       Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  actorType  String // "ADMIN" | "PLAYER" | "SYSTEM"
+  actorId    String?
+  action     String
+  targetType String?
+  targetId   String?
+  oldValue   Json?
+  newValue   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([gameId])
+}
