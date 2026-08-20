@@ -72,9 +72,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     case "ADJUST_LIFE": {
       const delta = Number.isFinite(body?.delta) ? Math.trunc(body.delta) : 0;
       if (!delta) return NextResponse.json({ error: "delta is required." }, { status: 400 });
-      const newLives = Math.max(0, Math.min(player.livesMax, player.livesCurrent + delta));
+      // Admin adjustments are never capped by the role's starting lives —
+      // you're the final authority on the dashboard, so if you want to
+      // hand someone extra lives beyond their role default, that always
+      // works. If you push someone's current lives above their previous
+      // max, we raise the max to match so their own screen shows a sane
+      // "X / X" instead of something like "5 / 2".
+      const newLives = Math.max(0, player.livesCurrent + delta);
+      const newLivesMax = Math.max(player.livesMax, newLives);
       return logAndReturn(
-        { livesCurrent: newLives, status: newLives === 0 ? "ELIMINATED" : "ACTIVE" },
+        { livesCurrent: newLives, livesMax: newLivesMax, status: newLives === 0 ? "ELIMINATED" : "ACTIVE" },
         "LIFE_ADJUSTED",
         { oldValue: { livesCurrent: player.livesCurrent }, newValue: { livesCurrent: newLives } }
       );

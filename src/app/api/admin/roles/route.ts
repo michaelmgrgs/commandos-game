@@ -50,11 +50,15 @@ export async function PUT(req: Request) {
     );
   }
 
+  // Multiple lives per role by default, on purpose — see the architecture
+  // doc: the goal is for the game to keep moving on its own without every
+  // single hit requiring a trip back to the admin. You can still edit any
+  // of these numbers per-role on the Setup page at any time.
   const defaults = [
-    { name: "General", rankOrder: 0, startingLives: 1, isSecret: false, slotsPerTeam: 1 },
-    { name: "Colonel", rankOrder: 1, startingLives: 2, isSecret: false, slotsPerTeam: 2 },
-    { name: "Spy", rankOrder: 2, startingLives: 1, isSecret: true, slotsPerTeam: 2 },
-    { name: "Soldier", rankOrder: 3, startingLives: 2, isSecret: false, slotsPerTeam: null },
+    { name: "General", rankOrder: 0, startingLives: 3, isSecret: false, slotsPerTeam: 1 },
+    { name: "Colonel", rankOrder: 1, startingLives: 3, isSecret: false, slotsPerTeam: 2 },
+    { name: "Spy", rankOrder: 2, startingLives: 2, isSecret: true, slotsPerTeam: 2 },
+    { name: "Soldier", rankOrder: 3, startingLives: 4, isSecret: false, slotsPerTeam: null },
   ];
 
   const roles = [];

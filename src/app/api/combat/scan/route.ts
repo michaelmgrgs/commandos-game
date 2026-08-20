@@ -129,6 +129,30 @@ export async function POST(req: Request) {
       },
     });
 
+    // Big-moment announcement: if the player just eliminated was a General,
+    // broadcast it as a full-screen alert to everyone for a few seconds
+    // (architecture doc's GENERAL_DOWN idea, simplified — role is matched
+    // by name since there's no dedicated "command figure" flag yet).
+    if (eliminated && freshTarget.roleId) {
+      const targetRole = await tx.role.findUnique({ where: { id: freshTarget.roleId } });
+      if (targetRole && targetRole.name.toLowerCase().includes("general")) {
+        const targetTeam = await tx.team.findUnique({ where: { id: freshTarget.teamId } });
+        await tx.game.update({
+          where: { id: attacker.gameId },
+          data: {
+            config: {
+              ...config,
+              announcement: {
+                type: "GENERAL_DOWN",
+                text: `☠️ GENERAL DOWN — ${targetTeam?.name || "A team"}'s commander has fallen!`,
+                ts: new Date().toISOString(),
+              },
+            },
+          },
+        });
+      }
+    }
+
     return {
       status: "SUCCESS" as const,
       message: eliminated ? `Target eliminated!` : `Hit confirmed — target has ${newLives} life left.`,

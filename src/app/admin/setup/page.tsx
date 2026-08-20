@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRequireAdmin } from "@/lib/useRequireAdmin";
+import BrandHeader from "@/components/BrandHeader";
 
 type Role = {
   id: string;
@@ -136,6 +137,15 @@ export default function AdminSetupPage() {
     loadGame();
   }
 
+  async function updateRole(roleId: string, patch: Record<string, unknown>) {
+    await fetch("/api/admin/roles", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: roleId, ...patch }),
+    });
+    loadGame();
+  }
+
   async function toggleRule(attackerRoleId: string, targetRoleId: string, current: boolean) {
     if (!game) return;
     await fetch("/api/admin/elimination-rules", {
@@ -167,7 +177,7 @@ export default function AdminSetupPage() {
   return (
     <div className="cc-container">
       <div className="cc-row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-        <div className="cc-title">Game Setup</div>
+        <BrandHeader size="sm" title="Game Setup" />
         <Link href="/admin/dashboard" className="cc-btn">
           Go to Command Center →
         </Link>
@@ -274,11 +284,15 @@ export default function AdminSetupPage() {
               </button>
             )}
 
+            <p className="cc-subtitle" style={{ marginTop: -4 }}>
+              Lives and slots are editable any time, even mid-game — e.g. bump everyone's starting lives up so the
+              game keeps moving without constant trips back to you.
+            </p>
             <table className="cc-table" style={{ marginTop: 12 }}>
               <thead>
                 <tr>
                   <th>Role</th>
-                  <th>Lives</th>
+                  <th>Starting lives</th>
                   <th>Secret?</th>
                   <th>Slots / team</th>
                 </tr>
@@ -287,9 +301,41 @@ export default function AdminSetupPage() {
                 {game.roles.map((r) => (
                   <tr key={r.id}>
                     <td>{r.name}</td>
-                    <td>{r.startingLives}</td>
-                    <td>{r.isSecret ? "Yes" : "No"}</td>
-                    <td>{r.slotsPerTeam === null ? "Unlimited" : r.slotsPerTeam}</td>
+                    <td>
+                      <input
+                        className="cc-input"
+                        style={{ marginBottom: 0, width: 70 }}
+                        type="number"
+                        min={1}
+                        defaultValue={r.startingLives}
+                        onBlur={(e) => {
+                          const val = Math.max(1, Number(e.target.value) || 1);
+                          if (val !== r.startingLives) updateRole(r.id, { startingLives: val });
+                        }}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={r.isSecret}
+                        onChange={(e) => updateRole(r.id, { isSecret: e.target.checked })}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        className="cc-input"
+                        style={{ marginBottom: 0, width: 90 }}
+                        type="number"
+                        min={0}
+                        placeholder="Unlimited"
+                        defaultValue={r.slotsPerTeam ?? ""}
+                        onBlur={(e) => {
+                          const raw = e.target.value;
+                          const val = raw === "" ? null : Math.max(0, Number(raw) || 0);
+                          if (val !== r.slotsPerTeam) updateRole(r.id, { slotsPerTeam: val });
+                        }}
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>

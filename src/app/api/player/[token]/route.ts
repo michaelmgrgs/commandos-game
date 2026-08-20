@@ -14,6 +14,8 @@ export async function GET(_req: Request, { params }: { params: { token: string }
     return NextResponse.json({ error: "Player not found." }, { status: 404 });
   }
 
+  const config = (player.game.config as Record<string, unknown>) || {};
+
   return NextResponse.json({
     player: {
       id: player.id,
@@ -30,6 +32,12 @@ export async function GET(_req: Request, { params }: { params: { token: string }
       team: { id: player.team.id, name: player.team.name, color: player.team.color },
       role: player.role ? { id: player.role.id, name: player.role.name, isSecret: player.role.isSecret } : null,
     },
-    game: { id: player.game.id, name: player.game.name, phase: player.game.phase },
+    game: {
+      id: player.game.id,
+      name: player.game.name,
+      phase: player.game.phase,
+      currentTask: typeof config.currentTask === "string" ? config.currentTask : null,
+      announcement: (config.announcement as { type: string; text: string; ts: string } | undefined) || null,
+    },
   });
 }

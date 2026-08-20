@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRequireAdmin } from "@/lib/useRequireAdmin";
+import BrandHeader from "@/components/BrandHeader";
 
 type Role = { id: string; name: string; slotsPerTeam: number | null; startingLives: number };
 type Team = { id: string; name: string; color: string; credits: number; score: number; maxPlayers: number };
@@ -28,7 +29,25 @@ type CombatEvent = {
   target: Player;
 };
 type AuditEntry = { id: string; action: string; actorType: string; createdAt: string };
-type Game = { id: string; name: string; phase: string };
+type Announcement = { type: string; text: string; ts: string };
+type Game = { id: string; name: string; phase: string; config?: { currentTask?: string | null; announcement?: Announcement | null } };
+
+const ANNOUNCEMENT_WINDOW_MS = 9000;
+
+const AUDIT_META: Record<string, { icon: string; tone: string; label: string }> = {
+  ROLE_ASSIGNED: { icon: "🎖️", tone: "tone-info", label: "Role assigned" },
+  LIFE_ADJUSTED: { icon: "❤️", tone: "tone-good", label: "Life adjusted" },
+  CREDITS_ADJUSTED: { icon: "💰", tone: "tone-good", label: "Credits adjusted" },
+  REVIVED: { icon: "✨", tone: "tone-good", label: "Player revived" },
+  FORCE_ELIMINATED: { icon: "☠️", tone: "tone-danger", label: "Force eliminated" },
+  PAUSED: { icon: "⏸️", tone: "tone-amber", label: "Player paused" },
+  RESUMED: { icon: "▶️", tone: "tone-good", label: "Player resumed" },
+  TEAM_CHANGED: { icon: "🔁", tone: "tone-info", label: "Team changed" },
+  GAME_CREATED: { icon: "🎮", tone: "tone-info", label: "Game created" },
+  PHASE_CHANGED: { icon: "🚦", tone: "tone-info", label: "Phase changed" },
+  TASK_PUSHED: { icon: "📋", tone: "tone-amber", label: "Task pushed to everyone" },
+  TASK_RELEASED: { icon: "✅", tone: "tone-good", label: "Task released" },
+};
 
 export default function AdminDashboardPage() {
   const { admin, checking } = useRequireAdmin();
@@ -40,6 +59,9 @@ export default function AdminDashboardPage() {
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [gameId, setGameId] = useState<string | null>(null);
+  const [taskMessage, setTaskMessage] = useState("");
+  const [taskBusy, setTaskBusy] = useState(false);
+  const [dismissedAnnouncementTs, setDismissedAnnouncementTs] = useState<string | null>(null);
 
   const loadGameId = useCallback(async () => {
     const res = await fetch("/api/admin/game", { cache: "no-store" });
@@ -76,6 +98,7 @@ export default function AdminDashboardPage() {
   if (!gameId) {
     return (
       <div className="cc-container">
+        <BrandHeader />
         <p>No active game yet.</p>
         <Link href="/admin/setup" className="cc-btn cc-btn-primary">
           Go to setup
@@ -97,17 +120,67 @@ export default function AdminDashboardPage() {
     }
   }
 
+  async function pushTask() {
+    if (!gameId || !taskMessage.trim()) return;
+    setTaskBusy(true);
+    try {
+      const res = await fetch("/api/admin/task", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId, message: taskMessage.trim() }),
+      });
+      if (res.ok) {
+        loadState(gameId);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Couldn't push the task.");
+      }
+    } finally {
+      setTaskBusy(false);
+    }
+  }
+
+  async function releaseTask() {
+    if (!gameId) return;
+    setTaskBusy(true);
+    try {
+      const res = await fetch("/api/admin/task", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId }),
+      });
+      if (res.ok) {
+        setTaskMessage("");
+        loadState(gameId);
+      }
+    } finally {
+      setTaskBusy(false);
+    }
+  }
+
   function roleCountOnTeam(teamId: string, roleId: string, excludePlayerId: string) {
     return players.filter((p) => p.team.id === teamId && p.role?.id === roleId && p.id !== excludePlayerId).length;
   }
 
+  const announcement = game?.config?.announcement || null;
+  const announcementFresh =
+    announcement &&
+    announcement.ts !== dismissedAnnouncementTs &&
+    Date.now() - new Date(announcement.ts).getTime() < ANNOUNCEMENT_WINDOW_MS;
+  const taskLockedCount = players.filter((p) => p.adminLock === "TASK_LOCKED").length;
+
   return (
     <div className="cc-container" style={{ maxWidth: 1100 }}>
-      <div className="cc-row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <div className="cc-title">{game?.name || "Command Center"}</div>
-          <div className="cc-subtitle">Phase: {game?.phase}</div>
+      {announcementFresh && announcement && (
+        <div className="cc-general-down-overlay" onClick={() => setDismissedAnnouncementTs(announcement.ts)}>
+          <div className="cc-siren">🚨</div>
+          <div className="cc-general-down-title">{announcement.text}</div>
+          <p className="cc-subtitle">Tap anywhere to continue</p>
         </div>
+      )}
+
+      <div className="cc-row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+        <BrandHeader size="sm" title={game?.name || "Command Center"} subtitle={`Phase: ${game?.phase}`} />
         <Link href="/admin/setup" className="cc-btn">
           Setup →
         </Link>
@@ -126,11 +199,33 @@ export default function AdminDashboardPage() {
                   <div className="cc-team-swatch" style={{ background: t.color }} />
                   <div style={{ fontWeight: 700 }}>{t.name}</div>
                   <div className="cc-subtitle">
-                    {activeCount}/{teamPlayers.length} active · {t.credits} credits · score {t.score}
+                    🟢 {activeCount}/{teamPlayers.length} active · 💰 {t.credits} · 🏆 {t.score}
                   </div>
                 </div>
               );
             })}
+          </div>
+
+          <div className="cc-card">
+            <div className="cc-card-title">📋 Push a task (pauses the game)</div>
+            <p className="cc-subtitle" style={{ marginTop: -6, marginBottom: 12 }}>
+              Write instructions and push them to every active player — their screen swaps to this task and combat
+              locks until you release everyone. Good for forcing a group challenge or a pause between rounds.
+            </p>
+            <textarea
+              className="cc-textarea"
+              placeholder="e.g. Everyone freeze! Gather at the flagpole and do 10 jumping jacks before you can fight again."
+              value={taskMessage}
+              onChange={(e) => setTaskMessage(e.target.value)}
+            />
+            <div className="cc-row">
+              <button className="cc-btn cc-btn-primary" disabled={taskBusy || !taskMessage.trim()} onClick={pushTask}>
+                📋 Push to everyone
+              </button>
+              <button className="cc-btn" disabled={taskBusy || taskLockedCount === 0} onClick={releaseTask}>
+                ✅ Release everyone {taskLockedCount > 0 ? `(${taskLockedCount})` : ""}
+              </button>
+            </div>
           </div>
 
           <div className="cc-card">
@@ -182,7 +277,7 @@ export default function AdminDashboardPage() {
                     </td>
                     <td>
                       {p.role ? (
-                        `${p.livesCurrent}/${p.livesMax}`
+                        `❤️ ${p.livesCurrent}/${p.livesMax}`
                       ) : (
                         <span className="cc-subtitle" title="Lives are set the moment you assign a role">
                           — (no role yet)
@@ -191,19 +286,23 @@ export default function AdminDashboardPage() {
                     </td>
                     <td>
                       <span className={`cc-badge ${p.status === "ACTIVE" ? "cc-badge-active" : "cc-badge-eliminated"}`}>
-                        {p.status}
+                        {p.status === "ACTIVE" ? "🟢 ACTIVE" : "💀 ELIMINATED"}
                       </span>
-                      {p.adminLock !== "NONE" && <span className="cc-badge cc-badge-locked" style={{ marginLeft: 4 }}>{p.adminLock}</span>}
+                      {p.adminLock !== "NONE" && (
+                        <span className="cc-badge cc-badge-locked" style={{ marginLeft: 4 }}>
+                          {p.adminLock === "PAUSED" ? "⏸️ PAUSED" : "📋 TASK"}
+                        </span>
+                      )}
                     </td>
-                    <td>{p.credits}</td>
+                    <td>💰 {p.credits}</td>
                     <td>
                       {p.adminLock === "NONE" ? (
                         <button className="cc-btn" onClick={() => playerAction(p.id, { action: "PAUSE" })}>
-                          Pause
+                          ⏸️ Pause
                         </button>
                       ) : (
                         <button className="cc-btn" onClick={() => playerAction(p.id, { action: "RESUME" })}>
-                          Resume
+                          ▶️ Resume
                         </button>
                       )}
                     </td>
@@ -212,10 +311,10 @@ export default function AdminDashboardPage() {
                         <button
                           className="cc-btn"
                           disabled={!p.role}
-                          title={p.role ? "Give this player one more life (won't go above their role's max)" : "Assign a role first"}
+                          title={p.role ? "Give this player one more life" : "Assign a role first"}
                           onClick={() => playerAction(p.id, { action: "ADJUST_LIFE", delta: 1 })}
                         >
-                          +1 Life
+                          ❤️+1 Life
                         </button>
                         <button
                           className="cc-btn"
@@ -223,21 +322,21 @@ export default function AdminDashboardPage() {
                           title={p.role ? "Take away one life" : "Assign a role first"}
                           onClick={() => playerAction(p.id, { action: "ADJUST_LIFE", delta: -1 })}
                         >
-                          −1 Life
+                          💔−1 Life
                         </button>
                         <button
                           className="cc-btn"
                           title="Manually give this player 10 credits — e.g. as a task reward or to fix a mistake. Doesn't require a role."
                           onClick={() => playerAction(p.id, { action: "ADJUST_CREDITS", delta: 10 })}
                         >
-                          +10 Credits
+                          💰+10 Credits
                         </button>
                         <button
                           className="cc-btn"
                           title="Manually take away 10 credits from this player"
                           onClick={() => playerAction(p.id, { action: "ADJUST_CREDITS", delta: -10 })}
                         >
-                          −10 Credits
+                          💸−10 Credits
                         </button>
                         {p.status === "ELIMINATED" ? (
                           <button
@@ -246,7 +345,7 @@ export default function AdminDashboardPage() {
                             title={p.role ? "Bring this player back into the game" : "Assign a role first"}
                             onClick={() => playerAction(p.id, { action: "REVIVE" })}
                           >
-                            Revive
+                            ✨ Revive
                           </button>
                         ) : (
                           <button
@@ -255,7 +354,7 @@ export default function AdminDashboardPage() {
                             title={p.role ? "Manually eliminate this player" : "Assign a role first"}
                             onClick={() => playerAction(p.id, { action: "FORCE_ELIMINATE" })}
                           >
-                            Eliminate
+                            ☠️ Eliminate
                           </button>
                         )}
                       </div>
@@ -268,27 +367,46 @@ export default function AdminDashboardPage() {
 
           <div className="cc-card">
             <div className="cc-card-title">Live activity</div>
-            {events.map((e) => (
-              <div key={e.id} className="cc-feed-item">
-                {e.status === "SUCCESS" ? (
-                  <>
-                    <strong>{e.attacker.name}</strong> eliminated <strong>{e.target.name}</strong>
-                  </>
-                ) : (
-                  <>
-                    <strong>{e.attacker.name}</strong> scan denied on <strong>{e.target.name}</strong> ({e.reason})
-                  </>
-                )}{" "}
-                — {new Date(e.createdAt).toLocaleTimeString()}
-              </div>
-            ))}
+            {events.length === 0 && audit.length === 0 && (
+              <p className="cc-subtitle">Nothing's happened yet — combat and admin actions will show up here live.</p>
+            )}
+            {events.map((e) => {
+              const eliminated = e.status === "SUCCESS" && e.target.status === "ELIMINATED";
+              const icon = e.status === "DENIED" ? "🚫" : eliminated ? "💀" : "⚔️";
+              const tone = e.status === "DENIED" ? "tone-amber" : eliminated ? "tone-danger" : "tone-info";
+              return (
+                <div key={e.id} className="cc-feed-item">
+                  <div className={`cc-feed-icon ${tone}`}>{icon}</div>
+                  <div className="cc-feed-text">
+                    {e.status === "SUCCESS" ? (
+                      <>
+                        <strong>{e.attacker.name}</strong> {eliminated ? "eliminated" : "hit"}{" "}
+                        <strong>{e.target.name}</strong>
+                      </>
+                    ) : (
+                      <>
+                        <strong>{e.attacker.name}</strong> was denied on <strong>{e.target.name}</strong> ({e.reason})
+                      </>
+                    )}
+                  </div>
+                  <div className="cc-feed-time">{new Date(e.createdAt).toLocaleTimeString()}</div>
+                </div>
+              );
+            })}
             {audit
               .filter((a) => !["ELIMINATION", "LIFE_LOST"].includes(a.action))
-              .map((a) => (
-                <div key={a.id} className="cc-feed-item">
-                  <strong>{a.action}</strong> by {a.actorType.toLowerCase()} — {new Date(a.createdAt).toLocaleTimeString()}
-                </div>
-              ))}
+              .map((a) => {
+                const meta = AUDIT_META[a.action] || { icon: "•", tone: "tone-info", label: a.action };
+                return (
+                  <div key={a.id} className="cc-feed-item">
+                    <div className={`cc-feed-icon ${meta.tone}`}>{meta.icon}</div>
+                    <div className="cc-feed-text">
+                      <strong>{meta.label}</strong> by {a.actorType.toLowerCase()}
+                    </div>
+                    <div className="cc-feed-time">{new Date(a.createdAt).toLocaleTimeString()}</div>
+                  </div>
+                );
+              })}
           </div>
         </>
       )}

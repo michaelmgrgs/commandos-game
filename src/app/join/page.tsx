@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import BrandHeader from "@/components/BrandHeader";
 
 type Team = { id: string; name: string; color: string; maxPlayers: number; _count: { players: number } };
 type GameResponse = {
@@ -65,6 +66,7 @@ export default function JoinPage() {
   if (loading) {
     return (
       <div className="cc-container">
+        <BrandHeader size="lg" />
         <p>Loading…</p>
       </div>
     );
@@ -73,6 +75,7 @@ export default function JoinPage() {
   if (!game || game.phase === "SETUP") {
     return (
       <div className="cc-container">
+        <BrandHeader size="lg" />
         <div className="cc-card" style={{ textAlign: "center" }}>
           <div className="cc-card-title">Not open yet</div>
           <p>The game admin hasn't opened registration yet. Check back shortly.</p>
@@ -83,12 +86,7 @@ export default function JoinPage() {
 
   return (
     <div className="cc-container">
-      <div className="cc-title" style={{ marginBottom: 4 }}>
-        {game.name}
-      </div>
-      <p className="cc-subtitle" style={{ marginBottom: 24 }}>
-        Enter your name and pick your team.
-      </p>
+      <BrandHeader size="lg" title={game.name} subtitle="Enter your name and pick your team." />
 
       <div className="cc-card">
         <label className="cc-label">Your name</label>

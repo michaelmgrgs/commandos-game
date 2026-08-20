@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import BrandHeader from "@/components/BrandHeader";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -34,6 +35,9 @@ export default function AdminLoginPage() {
 
   return (
     <div className="cc-container" style={{ maxWidth: 420, paddingTop: 80 }}>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+        <BrandHeader size="lg" />
+      </div>
       <div className="cc-title" style={{ marginBottom: 24, textAlign: "center" }}>
         Command Login
       </div>

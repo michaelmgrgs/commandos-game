@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import QrModal from "./QrModal";
 import ScanModal from "./ScanModal";
+import BrandHeader from "@/components/BrandHeader";
 
 type PlayerState = {
   id: string;
@@ -20,7 +21,13 @@ type PlayerState = {
   role: { id: string; name: string; isSecret: boolean } | null;
 };
 
-type GameState = { id: string; name: string; phase: string };
+type Announcement = { type: string; text: string; ts: string };
+type GameState = { id: string; name: string; phase: string; currentTask: string | null; announcement: Announcement | null };
+
+// An announcement is only shown as a big full-screen flash for this many
+// seconds after it fires — after that it's just stale state on the game
+// row and everyone's screen quietly goes back to normal.
+const ANNOUNCEMENT_WINDOW_MS = 9000;
 
 export default function PlayerProfileClient({ token }: { token: string }) {
   const [player, setPlayer] = useState<PlayerState | null>(null);
@@ -30,6 +37,7 @@ export default function PlayerProfileClient({ token }: { token: string }) {
   const [showScan, setShowScan] = useState(false);
   const [banner, setBanner] = useState<{ kind: "ok" | "deny"; text: string } | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [dismissedAnnouncementTs, setDismissedAnnouncementTs] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -78,6 +86,7 @@ export default function PlayerProfileClient({ token }: { token: string }) {
   if (notFound) {
     return (
       <div className="cc-container">
+        <BrandHeader />
         <div className="cc-card">
           <div className="cc-card-title">Not found</div>
           <p>This link doesn't match an active player. Ask an admin to re-check your join link.</p>
@@ -89,6 +98,7 @@ export default function PlayerProfileClient({ token }: { token: string }) {
   if (!player || !game) {
     return (
       <div className="cc-container">
+        <BrandHeader />
         <p>Loading…</p>
       </div>
     );
@@ -96,11 +106,28 @@ export default function PlayerProfileClient({ token }: { token: string }) {
 
   const profileUrl = typeof window !== "undefined" ? `${window.location.origin}/p/${player.token}` : "";
 
+  const announcement = game.announcement;
+  const announcementFresh =
+    announcement &&
+    announcement.ts !== dismissedAnnouncementTs &&
+    Date.now() - new Date(announcement.ts).getTime() < ANNOUNCEMENT_WINDOW_MS;
+
+  const generalDownOverlay =
+    announcementFresh && announcement ? (
+      <div className="cc-general-down-overlay" onClick={() => setDismissedAnnouncementTs(announcement.ts)}>
+        <div className="cc-siren">🚨</div>
+        <div className="cc-general-down-title">{announcement.text}</div>
+        <p className="cc-subtitle">Tap anywhere to continue</p>
+      </div>
+    ) : null;
+
   if (player.adminLock === "PAUSED") {
     return (
       <div className="cc-container">
+        <BrandHeader />
+        {generalDownOverlay}
         <div className="cc-locked-screen">
-          <div className="cc-title">Paused</div>
+          <div className="cc-title">⏸ Paused</div>
           <p>You've been paused by the game master. Sit tight — you'll be back in shortly.</p>
         </div>
       </div>
@@ -110,9 +137,15 @@ export default function PlayerProfileClient({ token }: { token: string }) {
   if (player.adminLock === "TASK_LOCKED") {
     return (
       <div className="cc-container">
-        <div className="cc-locked-screen">
-          <div className="cc-title">Task in progress</div>
-          <p>Command has pulled you into a task. Complete it in the field — this screen will unlock automatically.</p>
+        <BrandHeader />
+        {generalDownOverlay}
+        <div className="cc-task-screen">
+          <div style={{ fontSize: 36 }}>📋</div>
+          <div className="cc-title" style={{ color: "var(--cc-amber)" }}>
+            Command has a task for you
+          </div>
+          <div className="cc-task-message">{game.currentTask || "Stand by for instructions."}</div>
+          <p className="cc-subtitle">This screen unlocks automatically the moment Command releases you.</p>
         </div>
       </div>
     );
@@ -121,11 +154,12 @@ export default function PlayerProfileClient({ token }: { token: string }) {
   if (player.status === "ELIMINATED") {
     return (
       <div className="cc-container">
-        <div className="cc-locked-screen">
-          <div className="cc-title" style={{ color: "var(--cc-red)" }}>
-            Mission Failed
-          </div>
-          <p>You're out of lives. Wait for an admin to revive you.</p>
+        <BrandHeader />
+        {generalDownOverlay}
+        <div className="cc-mission-failed">
+          <div className="cc-siren">🚨</div>
+          <div className="cc-mission-failed-title">MISSION FAILED</div>
+          <p style={{ color: "#ffb3b7" }}>You're out of lives. Wait for an admin to revive you.</p>
         </div>
       </div>
     );
@@ -136,6 +170,8 @@ export default function PlayerProfileClient({ token }: { token: string }) {
 
   return (
     <div className="cc-container">
+      <BrandHeader size="sm" />
+      {generalDownOverlay}
       <div className="cc-row" style={{ justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <div className="cc-title" style={{ fontSize: 20 }}>
@@ -153,6 +189,7 @@ export default function PlayerProfileClient({ token }: { token: string }) {
           className="cc-card"
           style={{ borderColor: banner.kind === "ok" ? "var(--cc-accent)" : "var(--cc-red)", marginTop: 16 }}
         >
+          {banner.kind === "ok" ? "🎯 " : "🚫 "}
           {banner.text}
         </div>
       )}
@@ -160,17 +197,22 @@ export default function PlayerProfileClient({ token }: { token: string }) {
       <div className="cc-card" style={{ marginTop: 16, textAlign: "center" }}>
         <div className="cc-card-title">Lives</div>
         <div className="cc-profile-lives">
+          {"❤️".repeat(Math.min(10, Math.max(0, player.livesCurrent)))}
+          {player.livesCurrent > 10 && ` +${player.livesCurrent - 10}`}
+          {player.livesCurrent === 0 && "💀"}
+        </div>
+        <div className="cc-subtitle" style={{ marginTop: 4 }}>
           {player.livesCurrent} / {player.livesMax}
         </div>
       </div>
 
       <div className="cc-row">
         <div className="cc-card" style={{ flex: 1, textAlign: "center" }}>
-          <div className="cc-card-title">Credits</div>
+          <div className="cc-card-title">💰 Credits</div>
           <div style={{ fontSize: 24, fontWeight: 700 }}>{player.credits}</div>
         </div>
         <div className="cc-card" style={{ flex: 1, textAlign: "center" }}>
-          <div className="cc-card-title">Eliminations</div>
+          <div className="cc-card-title">🎯 Eliminations</div>
           <div style={{ fontSize: 24, fontWeight: 700 }}>{player.eliminationsCount}</div>
         </div>
       </div>
@@ -195,10 +237,10 @@ export default function PlayerProfileClient({ token }: { token: string }) {
             disabled={!canFight || scanning}
             onClick={() => setShowScan(true)}
           >
-            {scanning ? "Confirming…" : "SCAN TARGET"}
+            {scanning ? "Confirming…" : "🎯 SCAN TARGET"}
           </button>
           <button className="cc-btn" style={{ flex: 1 }} onClick={() => setShowQr(true)}>
-            SHOW MY QR
+            📱 SHOW MY QR
           </button>
         </div>
       </div>
