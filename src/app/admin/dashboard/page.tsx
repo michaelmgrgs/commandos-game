@@ -135,6 +135,11 @@ export default function AdminDashboardPage() {
 
           <div className="cc-card">
             <div className="cc-card-title">Roster</div>
+            <p className="cc-subtitle" style={{ marginTop: -6, marginBottom: 12 }}>
+              Pick a role for each player in the Role column below — that's what unlocks their lives and lets them
+              appear as assigned on their own phone screen. Life/pause/eliminate controls stay off until a role is
+              set, since lives don't mean anything until then.
+            </p>
             <table className="cc-table">
               <thead>
                 <tr>
@@ -176,7 +181,13 @@ export default function AdminDashboardPage() {
                       </select>
                     </td>
                     <td>
-                      {p.livesCurrent}/{p.livesMax}
+                      {p.role ? (
+                        `${p.livesCurrent}/${p.livesMax}`
+                      ) : (
+                        <span className="cc-subtitle" title="Lives are set the moment you assign a role">
+                          — (no role yet)
+                        </span>
+                      )}
                     </td>
                     <td>
                       <span className={`cc-badge ${p.status === "ACTIVE" ? "cc-badge-active" : "cc-badge-eliminated"}`}>
@@ -198,21 +209,52 @@ export default function AdminDashboardPage() {
                     </td>
                     <td>
                       <div className="cc-row">
-                        <button className="cc-btn" onClick={() => playerAction(p.id, { action: "ADJUST_LIFE", delta: 1 })}>
-                          +Life
+                        <button
+                          className="cc-btn"
+                          disabled={!p.role}
+                          title={p.role ? "Give this player one more life (won't go above their role's max)" : "Assign a role first"}
+                          onClick={() => playerAction(p.id, { action: "ADJUST_LIFE", delta: 1 })}
+                        >
+                          +1 Life
                         </button>
-                        <button className="cc-btn" onClick={() => playerAction(p.id, { action: "ADJUST_LIFE", delta: -1 })}>
-                          −Life
+                        <button
+                          className="cc-btn"
+                          disabled={!p.role}
+                          title={p.role ? "Take away one life" : "Assign a role first"}
+                          onClick={() => playerAction(p.id, { action: "ADJUST_LIFE", delta: -1 })}
+                        >
+                          −1 Life
                         </button>
-                        <button className="cc-btn" onClick={() => playerAction(p.id, { action: "ADJUST_CREDITS", delta: 10 })}>
-                          +10cr
+                        <button
+                          className="cc-btn"
+                          title="Manually give this player 10 credits — e.g. as a task reward or to fix a mistake. Doesn't require a role."
+                          onClick={() => playerAction(p.id, { action: "ADJUST_CREDITS", delta: 10 })}
+                        >
+                          +10 Credits
+                        </button>
+                        <button
+                          className="cc-btn"
+                          title="Manually take away 10 credits from this player"
+                          onClick={() => playerAction(p.id, { action: "ADJUST_CREDITS", delta: -10 })}
+                        >
+                          −10 Credits
                         </button>
                         {p.status === "ELIMINATED" ? (
-                          <button className="cc-btn cc-btn-primary" onClick={() => playerAction(p.id, { action: "REVIVE" })}>
+                          <button
+                            className="cc-btn cc-btn-primary"
+                            disabled={!p.role}
+                            title={p.role ? "Bring this player back into the game" : "Assign a role first"}
+                            onClick={() => playerAction(p.id, { action: "REVIVE" })}
+                          >
                             Revive
                           </button>
                         ) : (
-                          <button className="cc-btn cc-btn-danger" onClick={() => playerAction(p.id, { action: "FORCE_ELIMINATE" })}>
+                          <button
+                            className="cc-btn cc-btn-danger"
+                            disabled={!p.role}
+                            title={p.role ? "Manually eliminate this player" : "Assign a role first"}
+                            onClick={() => playerAction(p.id, { action: "FORCE_ELIMINATE" })}
+                          >
                             Eliminate
                           </button>
                         )}
