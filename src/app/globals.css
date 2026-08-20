@@ -151,7 +151,8 @@ a {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 10px 16px;
+  padding: 12px 18px;
+  line-height: 1.4;
   border-radius: 8px;
   border: 1px solid var(--cc-border);
   background: var(--cc-panel-2);
@@ -193,8 +194,10 @@ a {
 }
 
 .cc-badge {
-  display: inline-block;
-  padding: 3px 8px;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  line-height: 1.4;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
@@ -257,6 +260,14 @@ a {
   margin-bottom: 10px;
 }
 
+.cc-team-dot {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
 .cc-profile-lives {
   font-size: 40px;
   font-weight: 800;
@@ -306,7 +317,7 @@ a {
 
 table.cc-table {
   width: 100%;
-  min-width: 760px;
+  min-width: 820px;
   border-collapse: collapse;
   font-size: 14px;
 }
@@ -327,10 +338,10 @@ table.cc-table th {
 
 .cc-actions-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
   gap: 6px;
   align-items: stretch;
-  min-width: 260px;
+  min-width: 280px;
 }
 
 .cc-actions-grid .cc-btn {

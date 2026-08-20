@@ -239,8 +239,10 @@ export default function AdminSetupPage() {
                 {game.teams.map((t) => (
                   <tr key={t.id}>
                     <td>
-                      <span className="cc-team-swatch" style={{ background: t.color, display: "inline-block", width: 12, height: 12, borderRadius: "50%" }} />{" "}
-                      {t.name}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span className="cc-team-dot" style={{ background: t.color }} />
+                        {t.name}
+                      </div>
                     </td>
                     <td>{t._count?.players ?? "—"}</td>
                     <td>
