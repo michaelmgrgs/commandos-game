@@ -47,6 +47,8 @@ const AUDIT_META: Record<string, { icon: string; tone: string; label: string }> 
   PHASE_CHANGED: { icon: "🚦", tone: "tone-info", label: "Phase changed" },
   TASK_PUSHED: { icon: "📋", tone: "tone-amber", label: "Task pushed to everyone" },
   TASK_RELEASED: { icon: "✅", tone: "tone-good", label: "Task released" },
+  TEAM_PAUSED: { icon: "⏸️", tone: "tone-amber", label: "Team paused" },
+  TEAM_RESUMED: { icon: "▶️", tone: "tone-good", label: "Team resumed" },
 };
 
 export default function AdminDashboardPage() {
@@ -105,6 +107,19 @@ export default function AdminDashboardPage() {
         </Link>
       </div>
     );
+  }
+
+  async function teamPauseAction(teamId: string, action: "PAUSE_TEAM" | "RESUME_TEAM") {
+    const res = await fetch("/api/admin/teams", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: teamId, action }),
+    });
+    if (res.ok && gameId) loadState(gameId);
+    else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "That action failed.");
+    }
   }
 
   async function playerAction(playerId: string, body: Record<string, unknown>) {
@@ -194,6 +209,7 @@ export default function AdminDashboardPage() {
             {teams.map((t) => {
               const teamPlayers = players.filter((p) => p.team.id === t.id);
               const activeCount = teamPlayers.filter((p) => p.status === "ACTIVE").length;
+              const pausedCount = teamPlayers.filter((p) => p.adminLock === "PAUSED").length;
               return (
                 <div key={t.id} className="cc-card" style={{ flex: 1, minWidth: 180 }}>
                   <div className="cc-team-swatch" style={{ background: t.color }} />
@@ -201,6 +217,13 @@ export default function AdminDashboardPage() {
                   <div className="cc-subtitle">
                     🟢 {activeCount}/{teamPlayers.length} active · 💰 {t.credits} · 🏆 {t.score}
                   </div>
+                  <button
+                    className="cc-btn"
+                    style={{ marginTop: 10, width: "100%" }}
+                    onClick={() => teamPauseAction(t.id, pausedCount > 0 ? "RESUME_TEAM" : "PAUSE_TEAM")}
+                  >
+                    {pausedCount > 0 ? `▶️ Resume team (${pausedCount})` : "⏸️ Pause team"}
+                  </button>
                 </div>
               );
             })}
@@ -235,6 +258,7 @@ export default function AdminDashboardPage() {
               appear as assigned on their own phone screen. Life/pause/eliminate controls stay off until a role is
               set, since lives don't mean anything until then.
             </p>
+            <div className="cc-table-wrap">
             <table className="cc-table">
               <thead>
                 <tr>
@@ -307,7 +331,7 @@ export default function AdminDashboardPage() {
                       )}
                     </td>
                     <td>
-                      <div className="cc-row">
+                      <div className="cc-actions-grid">
                         <button
                           className="cc-btn"
                           disabled={!p.role}
@@ -363,6 +387,7 @@ export default function AdminDashboardPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           <div className="cc-card">

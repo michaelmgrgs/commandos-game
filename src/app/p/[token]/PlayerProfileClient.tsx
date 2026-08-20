@@ -129,6 +129,11 @@ export default function PlayerProfileClient({ token }: { token: string }) {
         <div className="cc-locked-screen">
           <div className="cc-title">⏸ Paused</div>
           <p>You've been paused by the game master. Sit tight — you'll be back in shortly.</p>
+          {game.currentTask && (
+            <div className="cc-task-message" style={{ marginTop: 8 }}>
+              📋 {game.currentTask}
+            </div>
+          )}
         </div>
       </div>
     );

@@ -14,7 +14,7 @@ export default function BrandHeader({
   return (
     <div className="cc-brand-header">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/carbon-logo.png" alt="Carbon" width={logoSize} height={logoSize} className="cc-brand-logo" />
+      <img src="/carbon-logo.png" alt="Carbon" height={logoSize} className="cc-brand-logo" />
       {(title || subtitle) && (
         <div>
           {title && <div className="cc-brand-title">{title}</div>}
