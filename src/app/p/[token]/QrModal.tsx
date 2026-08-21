@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 
 // Full-screen display of the player's own QR code — this is what they
-// show the winner's camera during combat (architecture doc §5).
+// show the winner's camera during combat (architecture doc §5). Visibility
+// is driven by a URL query param (see PlayerProfileClient) rather than
+// local state, so the phone's back button closes it via normal Next.js
+// routing instead of leaving the page entirely.
 export default function QrModal({ url, onClose }: { url: string; onClose: () => void }) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
 

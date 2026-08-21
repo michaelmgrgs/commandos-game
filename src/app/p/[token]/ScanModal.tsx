@@ -4,7 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import jsQR from "jsqr";
 
 // Opens the phone camera and continuously scans for a QR code. Calls
-// onScan(rawText) the moment it finds one and stops the camera.
+// onScan(rawText) the moment it finds one and stops the camera. Visibility
+// is driven by a URL query param (see PlayerProfileClient) rather than
+// local state, so the phone's back button closes it via normal Next.js
+// routing instead of leaving the page entirely.
 export default function ScanModal({
   onScan,
   onClose,

@@ -9,6 +9,12 @@ type GameResponse = {
   game: { id: string; name: string; phase: string; teams: Team[] } | null;
 };
 
+// Where a player's own token gets stashed after they register, so this
+// device can find its way back to their profile even if they land back on
+// /join later (back button, closed tab, bookmark) — without this they had
+// no way back in and had to register again as a brand-new player.
+const TOKEN_STORAGE_KEY = "cc_player_token";
+
 export default function JoinPage() {
   const router = useRouter();
   const [game, setGame] = useState<GameResponse["game"]>(null);
@@ -17,6 +23,36 @@ export default function JoinPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [returningName, setReturningName] = useState<string | null>(null);
+  const [checkingReturning, setCheckingReturning] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function checkReturning() {
+      const savedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+      if (!savedToken) {
+        setCheckingReturning(false);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/player/${savedToken}`, { cache: "no-store" });
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          setReturningName(data.player.callsign || data.player.name);
+        } else if (!cancelled) {
+          localStorage.removeItem(TOKEN_STORAGE_KEY);
+        }
+      } catch {
+        // Offline or unreachable — fall through to the normal join form.
+      } finally {
+        if (!cancelled) setCheckingReturning(false);
+      }
+    }
+    checkReturning();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,6 +76,16 @@ export default function JoinPage() {
     };
   }, []);
 
+  function continueAsReturning() {
+    const savedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (savedToken) router.replace(`/p/${savedToken}`);
+  }
+
+  function joinAsSomeoneElse() {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    setReturningName(null);
+  }
+
   async function submit() {
     if (!game || !teamId || !name.trim()) return;
     setSubmitting(true);
@@ -56,18 +102,38 @@ export default function JoinPage() {
         setSubmitting(false);
         return;
       }
-      router.push(`/p/${data.player.token}`);
+      localStorage.setItem(TOKEN_STORAGE_KEY, data.player.token);
+      router.replace(`/p/${data.player.token}`);
     } catch {
       setError("Something went wrong. Check your connection and try again.");
       setSubmitting(false);
     }
   }
 
-  if (loading) {
+  if (loading || checkingReturning) {
     return (
       <div className="cc-container">
         <BrandHeader size="lg" />
         <p>Loading…</p>
+      </div>
+    );
+  }
+
+  if (returningName) {
+    return (
+      <div className="cc-container">
+        <BrandHeader size="lg" title="Welcome back" />
+        <div className="cc-card" style={{ textAlign: "center" }}>
+          <p>
+            You're already signed in as <strong>{returningName}</strong> on this device.
+          </p>
+          <button className="cc-btn cc-btn-primary cc-btn-block" style={{ marginTop: 12 }} onClick={continueAsReturning}>
+            Continue as {returningName}
+          </button>
+          <button className="cc-btn cc-btn-block" style={{ marginTop: 8 }} onClick={joinAsSomeoneElse}>
+            Not you? Join as someone else
+          </button>
+        </div>
       </div>
     );
   }

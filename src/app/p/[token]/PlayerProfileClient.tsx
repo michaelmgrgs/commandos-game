@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import QrModal from "./QrModal";
 import ScanModal from "./ScanModal";
 import BrandHeader from "@/components/BrandHeader";
@@ -30,25 +31,53 @@ type GameState = { id: string; name: string; phase: string; currentTask: string 
 const ANNOUNCEMENT_WINDOW_MS = 9000;
 
 export default function PlayerProfileClient({ token }: { token: string }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // Which overlay is open is driven by a ?modal= query param instead of
+  // local state, and routed through Next's own router (not raw
+  // history.pushState — that fights the App Router's history handling and
+  // resets this component's state). That way the phone's physical back
+  // button pops the modal via normal navigation instead of leaving the
+  // page — previously it took players off /p/[token] entirely with no way
+  // back short of re-registering from scratch.
+  const activeModal = searchParams.get("modal");
+  const showQr = activeModal === "qr";
+  const showScan = activeModal === "scan";
   const [player, setPlayer] = useState<PlayerState | null>(null);
   const [game, setGame] = useState<GameState | null>(null);
   const [notFound, setNotFound] = useState(false);
-  const [showQr, setShowQr] = useState(false);
-  const [showScan, setShowScan] = useState(false);
   const [banner, setBanner] = useState<{ kind: "ok" | "deny"; text: string } | null>(null);
   const [scanning, setScanning] = useState(false);
   const [dismissedAnnouncementTs, setDismissedAnnouncementTs] = useState<string | null>(null);
+
+  function openModal(name: "qr" | "scan") {
+    router.push(`${pathname}?modal=${name}`, { scroll: false });
+  }
+
+  function closeModal() {
+    if (searchParams.get("modal")) {
+      router.back();
+    }
+  }
 
   const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/player/${token}`, { cache: "no-store" });
       if (res.status === 404) {
         setNotFound(true);
+        if (localStorage.getItem("cc_player_token") === token) {
+          localStorage.removeItem("cc_player_token");
+        }
         return;
       }
       const data = await res.json();
       setPlayer(data.player);
       setGame(data.game);
+      // Remember this device's token so landing on /join later (back
+      // button, closed tab) can offer "continue" instead of a blank
+      // registration form.
+      localStorage.setItem("cc_player_token", token);
     } catch {
       // Silently ignore transient poll failures — next poll will retry.
     }
@@ -61,7 +90,7 @@ export default function PlayerProfileClient({ token }: { token: string }) {
   }, [load]);
 
   async function handleScan(raw: string) {
-    setShowScan(false);
+    closeModal();
     setScanning(true);
     try {
       const res = await fetch("/api/combat/scan", {
@@ -240,18 +269,18 @@ export default function PlayerProfileClient({ token }: { token: string }) {
             className="cc-btn cc-btn-danger"
             style={{ flex: 1 }}
             disabled={!canFight || scanning}
-            onClick={() => setShowScan(true)}
+            onClick={() => openModal("scan")}
           >
             {scanning ? "Confirming…" : "🎯 SCAN TARGET"}
           </button>
-          <button className="cc-btn" style={{ flex: 1 }} onClick={() => setShowQr(true)}>
+          <button className="cc-btn" style={{ flex: 1 }} onClick={() => openModal("qr")}>
             📱 SHOW MY QR
           </button>
         </div>
       </div>
 
-      {showQr && <QrModal url={profileUrl} onClose={() => setShowQr(false)} />}
-      {showScan && <ScanModal onScan={handleScan} onClose={() => setShowScan(false)} />}
+      {showQr && <QrModal url={profileUrl} onClose={closeModal} />}
+      {showScan && <ScanModal onScan={handleScan} onClose={closeModal} />}
     </div>
   );
 }
