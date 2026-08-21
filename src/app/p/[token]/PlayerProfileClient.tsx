@@ -203,21 +203,29 @@ export default function PlayerProfileClient({ token }: { token: string }) {
   const canFight = !awaitingRole && game.phase === "ACTIVE";
 
   return (
-    <div className="cc-container">
-      <BrandHeader size="sm" />
-      {generalDownOverlay}
-      <div className="cc-row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <div className="cc-title" style={{ fontSize: 20 }}>
-            {player.callsign || player.name}
-          </div>
-          <div className="cc-subtitle">
-            {player.team.name} {awaitingRole ? "· Awaiting role assignment" : `· ${player.role!.name}`}
+    <>
+      <div className="cc-op-header">
+        <div className="cc-op-header-content">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/carbon-logo.png" alt="Carbon" className="cc-op-header-logo" />
+        </div>
+        <div className="cc-op-header-content">
+          <div className="cc-row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div className="cc-title" style={{ fontSize: 20 }}>
+                {player.callsign || player.name}
+              </div>
+              <div className="cc-subtitle">
+                {player.team.name} {awaitingRole ? "· Awaiting role assignment" : `· ${player.role!.name}`}
+              </div>
+            </div>
+            <span className={`cc-badge cc-badge-active`}>{game.phase}</span>
           </div>
         </div>
-        <span className={`cc-badge cc-badge-active`}>{game.phase}</span>
       </div>
 
+      <div className="cc-container">
+      {generalDownOverlay}
       {banner && (
         <div
           className="cc-card"
@@ -228,26 +236,35 @@ export default function PlayerProfileClient({ token }: { token: string }) {
         </div>
       )}
 
-      <div className="cc-card" style={{ marginTop: 16, textAlign: "center" }}>
-        <div className="cc-card-title">Lives</div>
-        <div className="cc-profile-lives">
-          {"❤️".repeat(Math.min(10, Math.max(0, player.livesCurrent)))}
-          {player.livesCurrent > 10 && ` +${player.livesCurrent - 10}`}
-          {player.livesCurrent === 0 && "💀"}
-        </div>
-        <div className="cc-subtitle" style={{ marginTop: 4 }}>
-          {player.livesCurrent} / {player.livesMax}
+      <div className="cc-row" style={{ marginTop: 16 }}>
+        <div className="cc-stat-box command-card lives-card">
+          <div className="cc-stat-box-label">Lives</div>
+          <div className="cc-stat-box-row">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/icon-lives.png" alt="" className="cc-stat-box-icon" />
+            <span className="cc-stat-box-value">
+              {player.livesCurrent} / {player.livesMax}
+            </span>
+          </div>
         </div>
       </div>
 
-      <div className="cc-row">
-        <div className="cc-card" style={{ flex: 1, textAlign: "center" }}>
-          <div className="cc-card-title">💰 Credits</div>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>{player.credits}</div>
+      <div className="cc-row" style={{ marginTop: 8 }}>
+        <div className="cc-stat-box command-card credits-card">
+          <div className="cc-stat-box-label">Credits</div>
+          <div className="cc-stat-box-row">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/icon-credits.png" alt="" className="cc-stat-box-icon" />
+            <span className="cc-stat-box-value">{player.credits}</span>
+          </div>
         </div>
-        <div className="cc-card" style={{ flex: 1, textAlign: "center" }}>
-          <div className="cc-card-title">🎯 Eliminations</div>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>{player.eliminationsCount}</div>
+        <div className="cc-stat-box command-card eliminations-card">
+          <div className="cc-stat-box-label">Eliminations</div>
+          <div className="cc-stat-box-row">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/icon-eliminations.png" alt="" className="cc-stat-box-icon" />
+            <span className="cc-stat-box-value">{player.eliminationsCount}</span>
+          </div>
         </div>
       </div>
 
@@ -263,24 +280,27 @@ export default function PlayerProfileClient({ token }: { token: string }) {
         </div>
       )}
 
-      <div className="cc-card">
-        <div className="cc-row">
-          <button
-            className="cc-btn cc-btn-danger"
-            style={{ flex: 1 }}
-            disabled={!canFight || scanning}
-            onClick={() => openModal("scan")}
-          >
-            {scanning ? "Confirming…" : "🎯 SCAN TARGET"}
-          </button>
-          <button className="cc-btn" style={{ flex: 1 }} onClick={() => openModal("qr")}>
-            📱 SHOW MY QR
-          </button>
-        </div>
+      <div className="cc-row scan-qr-btns">
+        <button
+          className="cc-btn-op-accent"
+          style={{ flex: 1 }}
+          disabled={!canFight || scanning}
+          onClick={() => openModal("scan")}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/assets/icon-scan-target.png" alt="" className="cc-btn-op-accent-icon" />
+          {scanning ? "Confirming…" : "SCAN TARGET"}
+        </button>
+        <button className="cc-btn-op-accent show-qr" style={{ flex: 1 }} onClick={() => openModal("qr")}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/assets/icon-qr.png" alt="" className="cc-btn-op-accent-icon" />
+          SHOW MY QR
+        </button>
       </div>
 
       {showQr && <QrModal url={profileUrl} onClose={closeModal} />}
       {showScan && <ScanModal onScan={handleScan} onClose={closeModal} />}
-    </div>
+      </div>
+    </>
   );
 }

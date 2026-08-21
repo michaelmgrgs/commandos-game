@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import BrandHeader from "@/components/BrandHeader";
 
 type Team = { id: string; name: string; color: string; maxPlayers: number; _count: { players: number } };
 type GameResponse = {
@@ -112,49 +111,69 @@ export default function JoinPage() {
 
   if (loading || checkingReturning) {
     return (
-      <div className="cc-container">
-        <BrandHeader size="lg" />
-        <p>Loading…</p>
-      </div>
+      <>
+        <div className="cc-join-hero">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/hero-operator.png" alt="Carbon Commandos" />
+        </div>
+        <div className="cc-container">
+          <p>Loading…</p>
+        </div>
+      </>
     );
   }
 
   if (returningName) {
     return (
-      <div className="cc-container">
-        <BrandHeader size="lg" title="Welcome back" />
-        <div className="cc-card" style={{ textAlign: "center" }}>
-          <p>
-            You're already signed in as <strong>{returningName}</strong> on this device.
-          </p>
-          <button className="cc-btn cc-btn-primary cc-btn-block" style={{ marginTop: 12 }} onClick={continueAsReturning}>
-            Continue as {returningName}
-          </button>
-          <button className="cc-btn cc-btn-block" style={{ marginTop: 8 }} onClick={joinAsSomeoneElse}>
-            Not you? Join as someone else
-          </button>
+      <>
+        <div className="cc-join-hero">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/hero-operator.png" alt="Carbon Commandos" />
         </div>
-      </div>
+        <div className="cc-container">
+          <div className="cc-card" style={{ textAlign: "center" }}>
+            <div className="cc-card-title">Welcome back</div>
+            <p>
+              You're already signed in as <strong>{returningName}</strong> on this device.
+            </p>
+            <button className="cc-btn cc-btn-primary cc-btn-block" style={{ marginTop: 12 }} onClick={continueAsReturning}>
+              Continue as {returningName}
+            </button>
+            <button className="cc-btn cc-btn-block" style={{ marginTop: 8 }} onClick={joinAsSomeoneElse}>
+              Not you? Join as someone else
+            </button>
+          </div>
+        </div>
+      </>
     );
   }
 
   if (!game || game.phase === "SETUP") {
     return (
-      <div className="cc-container">
-        <BrandHeader size="lg" />
-        <div className="cc-card" style={{ textAlign: "center" }}>
-          <div className="cc-card-title">Not open yet</div>
-          <p>The game admin hasn't opened registration yet. Check back shortly.</p>
+      <>
+        <div className="cc-join-hero">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/hero-operator.png" alt="Carbon Commandos" />
         </div>
-      </div>
+        <div className="cc-container">
+          <div className="cc-card" style={{ textAlign: "center" }}>
+            <div className="cc-card-title">Not open yet</div>
+            <p>The game admin hasn't opened registration yet. Check back shortly.</p>
+          </div>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="cc-container">
-      <BrandHeader size="lg" title={game.name} subtitle="Enter your name and pick your team." />
-
+    <>
+      <div className="cc-join-hero">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/hero-operator.png" alt="Carbon Commandos" />
+      </div>
+      <div className="cc-container">
       <div className="cc-card">
+        <div className="cc-card-title">{game.name}</div>
         <label className="cc-label">Your name</label>
         <input
           className="cc-input"
@@ -197,6 +216,7 @@ export default function JoinPage() {
           {submitting ? "Joining…" : "Join the game"}
         </button>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
